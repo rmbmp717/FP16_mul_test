@@ -1,3 +1,6 @@
+/*
+NISHIHARU
+*/
 module fp16_multiplier (
     input [15:0] a,  // 入力A (FP16)
     input [15:0] b,  // 入力B (FP16)
