@@ -16,18 +16,18 @@ module fp16_multiplier (
     wire result_sign = sign_a ^ sign_b;
 
     // 指数部の計算
-    wire [5:0] exp_sum = exp_a + exp_b - 5'd15;  // バイアス調整 (15)
+    wire [6:0] exp_sum = exp_a + exp_b - 5'd15;  // バイアス調整 (15)
 
     // 仮数部の乗算
     wire [21:0] mantissa_product = mantissa_a * mantissa_b;
 
     // 正規化処理
     wire [10:0] normalized_mantissa = (mantissa_product[21]) ? mantissa_product[21:11] : mantissa_product[20:10];
-    wire [4:0] normalized_exp = (mantissa_product[21]) ? exp_sum + 1'b1 : exp_sum;
+    wire [6:0] normalized_exp = (mantissa_product[21]) ? exp_sum + 1'b1 : exp_sum;
 
     // オーバーフローとアンダーフローのチェック
-    wire overflow = (normalized_exp >= 5'd31);
-    wire underflow = (normalized_exp == 5'd0);
+    wire overflow = (normalized_exp > 5'd30); // FP16の指数部の最大値は30
+    wire underflow = (normalized_exp < 5'd1); // 1未満でアンダーフロー
 
     // 結果の組み立て
     assign result = (underflow) ? 16'b0 :  // アンダーフロー時は0
