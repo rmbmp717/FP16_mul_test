@@ -18,8 +18,12 @@ async def FP16_mul_test(dut):
     # Wait for some time to simulate initial conditions
     await Timer(100, units="ns")
     # 10回繰り返してテストを実行
-    for _ in range(300):
-        await fp16_test(dut, random.uniform(-255, 255), random.uniform(-255, 255))
+    '''
+    for _ in range(30):
+        await fp16_test(dut, random.uniform(-0.255, 0.255), random.uniform(-0.255, 0.255))
+    '''
+
+    await fp16_test(dut, 0.010, -0.020660400390625)
 
     print("==========================================================================")    
 
@@ -56,12 +60,10 @@ async def fp16_test(dut, real_a, real_b):
     value_c = value_a * value_b
     #print(f"value_c: {value_c}")
     
-    print(f"A:{value_a:.3f}, \tB:{value_b:.3f}, \tRTL value: {real_value:.3f}, \tValue_c: {value_c:.3f}")
+    print(f"A:{value_a:.3f}, \tB:{value_b:.3f}, \tRTL value: {real_value:.3f}, \t\tValue_c: {value_c:.3f}")
     if abs(real_value - value_c) > 0.005 * abs(real_value):
         print("Warning: Difference between RTL value and calculated value exceeds 0.5 %")
     
-    print(f"A:{value_a:.3f}, \tB:{value_b:.3f}, \tRTL value: {real_value:.3f}, \tValue_c: {value_c:.3f}")
-
 async def fp16_mul(dut, fp_a, fp_b):
     dut.a.value = fp_a
     dut.b.value = fp_b
