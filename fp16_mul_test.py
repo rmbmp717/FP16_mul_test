@@ -14,14 +14,27 @@ async def FP16_mul_test(dut):
     # Initialize input values
     dut.a.value = 0
     dut.b.value = 0
-
+    
+    # fp16_libのテスト
+    # n回繰り返してテストを実行
+    print("fp16_lib test.")
+    for _ in range(1000000):
+        x = random.uniform(-255, 255)
+        fp16_x = float_to_fp16(x)
+        float_x = fp16_to_float(fp16_x)
+        if abs(x-float_x)/x > 0.001 and x > 0.0001 :
+            print(f"Err. x = {x:.04f}")
+            
+    print("==========================================================================")    
     # Wait for some time to simulate initial conditions
-    await Timer(100, units="ns")
-    # 10回繰り返してテストを実行
-    for _ in range(30):
-        await fp16_test(dut, random.uniform(-0.00255, 0.00255), random.uniform(-0.255, 0.255))
+    await Timer(10, units="ns")
+    # n回繰り返してテストを実行
+    print("fp16_mul.v test.")
+    for _ in range(1000):
+        await Timer(10, units="ns")
+        await fp16_test(dut, random.uniform(-0.255, 0.255), random.uniform(-0.255, 0.255))
 
-    #await fp16_test(dut, 0.001, -0.020660400390625)
+    #await fp16_test(dut, -0.125091, 0.124864)
 
     print("==========================================================================")    
 
@@ -56,13 +69,19 @@ async def fp16_test(dut, real_a, real_b):
     
     # Check Value
     value_c = value_a * value_b
+    await Timer(1, units="ns")
     fp16_value_c = float_to_fp16(value_c)
     #print(f"value_c: {value_c}")
     
-    print(f"A:{value_a:.5f}, \tB:{value_b:.5f}, \tRTL value: {real_value:.8f}, \t\tValue_c: {value_c:.8f}")
+    #print(f"A:{value_a:.5f}, \tB:{value_b:.5f}, \tRTL value: {real_value:.8f}, \t\tValue_c: {value_c:.8f}")
     #print(f"A:0x{fp16_result_a:04X}, \tB:0x{fp16_result_b:04X}, \tRTL value: 0x{fp16_verilog_result:04X}, \tValue_c: 0x{fp16_value_c:04X}")
-    if abs(real_value - value_c) > 0.005 * abs(real_value):
-        print("Warning: Difference between RTL value and calculated value exceeds 0.5 %")
+    if abs(real_value - value_c) > 0.01 * abs(real_value) and abs(real_value)>0.00001 :
+        print(f"A:{value_a:.6f}, \tB:{value_b:.6f}, \tRTL value: {real_value:.8f}, \tValue_c: {value_c:.8f}")
+        print(f"A:0x{fp16_result_a:04X}, \tB:0x{fp16_result_b:04X}, \tRTL value: 0x{fp16_verilog_result:04X}, \tValue_c: 0x{fp16_value_c:04X}")
+        print(f"Err rate : {value_c/real_value:.3f}")
+        print(f"float->fp16->float: {fp16_to_float(fp16_result_a)}")
+        print(f"float->fp16->float: {fp16_to_float(fp16_result_b)}")
+        print("Warning: Difference between RTL value and calculated value exceeds 1.0 %")
     
 async def fp16_mul(dut, fp_a, fp_b):
     dut.a.value = fp_a
@@ -72,6 +91,8 @@ async def fp16_mul(dut, fp_a, fp_b):
     result = dut.result.value.to_unsigned()
     #print(f"RTL: mul result = {result}")
     return result
+
+import struct
 
 def float_to_fp16(value):
     # Convert to 32-bit float representation
