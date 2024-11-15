@@ -13,7 +13,7 @@ function [15:0] fp16_multiply;
     integer exp_sum; // Changed to signed integer
     reg [21:0] frac_mult;
     reg [10:0] frac_adjusted;
-    integer exp_adjusted; // Changed to signed integer
+    reg [7:0]  exp_adjusted; // Changed to signed integer
     reg guard_bit, round_bit, sticky_bit;
     reg [10:0] frac_final;
     integer shift_amount;
@@ -77,10 +77,13 @@ begin
         // Rounding (round to nearest even)
         if ((guard_bit && (round_bit | sticky_bit)) || (guard_bit && ~round_bit && ~sticky_bit && frac_adjusted[0])) begin
             frac_final = frac_adjusted + 1;
-            if (frac_final == 11'b10000000000) begin
+            //if (frac_final == 11'b10000000000) begin
+            if (frac_adjusted == 11'h7FF) begin
                 // Handle carry
-                frac_final = frac_final >> 1;
+                frac_final = 11'b0000000000;
                 exp_adjusted = exp_adjusted + 1;
+            end else begin
+                exp_adjusted = exp_adjusted;
             end
         end else begin
             frac_final = frac_adjusted;

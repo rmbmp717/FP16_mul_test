@@ -30,13 +30,16 @@ async def FP16_mul_test(dut):
     await Timer(10, units="ns")
     # n回繰り返してテストを実行
     print("fp16_mul.v test.")
-    for _ in range(1000):
+    
+    for _ in range(30000):
         await Timer(10, units="ns")
         await fp16_test(dut, random.uniform(-0.255, 0.255), random.uniform(-0.255, 0.255))
-
-    #await fp16_test(dut, -0.125091, 0.124864)
-
-    print("==========================================================================")    
+    
+    #await fp16_test(dut, 0.1, 0.1)
+    await fp16_test(dut, 0.172854, 0.180827)
+    
+    print("==========================================================================")   
+    await Timer(100, units="ns") 
 
     # Further tests can be added here with different input values and checks
     
