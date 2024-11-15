@@ -34,6 +34,7 @@ async def FP16_mul_test(dut):
     for _ in range(30000):
         await Timer(10, units="ns")
         await fp16_test(dut, random.uniform(-0.255, 0.255), random.uniform(-0.255, 0.255))
+        await fp16_test(dut, random.uniform(-2550, 2550), random.uniform(-2550, 2550))
     
     #await fp16_test(dut, 0.1, 0.1)
     await fp16_test(dut, 0.172854, 0.180827)
