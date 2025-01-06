@@ -49,8 +49,8 @@ pub fn fp16_multiply(a: bits[16], b: bits[16]) -> bits[16] {
     let exp_b = b[10:15];  // Exponent (bits[5])
     let frac_a_raw: bits[10] = a[0:10];  // 下位 10 ビットをスライス
     let frac_b_raw: bits[10] = b[0:10];  // 下位 10 ビットをスライス
-    let sign_a: bits[1] = (a >> 15)[0:1];  // 上位1ビットをスライス
-    let sign_b: bits[1] = (b >> 15)[0:1];  // 上位1ビットをスライス
+    let sign_a: bits[1] = a[15:16];  // 上位1ビットをスライス
+    let sign_b: bits[1] = b[15:16];  // 上位1ビットをスライス
 
     // ----------------------------
     // 2. 特殊値の判定
@@ -78,7 +78,7 @@ pub fn fp16_multiply(a: bits[16], b: bits[16]) -> bits[16] {
     // ----------------------------
     // 5. 正規化と丸め処理
     // ----------------------------
-    let leading_bit: bits[1] = (frac_mult >> 21)[0:1];  // 最上位1ビットをスライス
+    let leading_bit: bits[1] = frac_mult[21:22];  // 最上位1ビットをスライス
     let frac_adjusted = sel(leading_bit == bits[1]:1, frac_mult[11:22], frac_mult[10:21]);
     let exp_adjusted = exp_sum + sel(leading_bit == bits[1]:1, bits[8]:1, bits[8]:0);
 
@@ -97,6 +97,8 @@ pub fn fp16_multiply(a: bits[16], b: bits[16]) -> bits[16] {
     // 6. 特殊値・範囲外チェック
     // ----------------------------
     let is_nan_result = is_nan_a | is_nan_b | (is_inf_a & is_zero_b) | (is_zero_a & is_inf_b);
+    let is_inf_a = (exp_a == bits[5]:0x1F) & (frac_a_raw == bits[10]:0);
+    let is_inf_b = (exp_b == bits[5]:0x1F) & (frac_b_raw == bits[10]:0);
     let is_inf_result = is_inf_a | is_inf_b | (exp_final >= bits[8]:31);
     let is_zero_result = is_zero_a | is_zero_b;
 
@@ -106,7 +108,7 @@ pub fn fp16_multiply(a: bits[16], b: bits[16]) -> bits[16] {
     // 7. 最終結果の生成
     // ----------------------------
     let result = if is_nan_result {
-        bits[16]:0xFE00  // NaN
+        bits[16]:0x7E00  // NaN
     } else if is_inf_result {
         (sign_result ++ bits[5]:0x1F) ++ bits[10]:0  // Infinity
     } else if is_zero_result {

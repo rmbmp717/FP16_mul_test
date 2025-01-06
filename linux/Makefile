@@ -1,6 +1,38 @@
 # Variables
+TOP = fp16_multiplier
+INPUT_FILE = fp16_mul.x
+IR_FILE = $(TOP).ir
+OPT_IR_FILE = $(TOP)_opt.ir
+OUTPUT_DIR = /home/haruhiko/xls/bazel-bin
+OUTPUT_FILE = fp16_mul_dslx.v
+
 SIM = icarus
 COCOTB_DIR = /home/haruhiko/Program/GoogleXLS_test-main/Crc32_Proc/cocotb
+
+# Tools
+INTERPRETER = $(OUTPUT_DIR)/xls/dslx/interpreter_main
+IR_CONVERTER = $(OUTPUT_DIR)/xls/dslx/ir_convert/ir_converter_main
+OPT_MAIN = $(OUTPUT_DIR)/xls/tools/opt_main
+CODEGEN_MAIN = $(OUTPUT_DIR)/xls/tools/codegen_main
+
+interpret:
+	$(INTERPRETER) --alsologtostderr $(INPUT_FILE)
+
+# Targets with dependencies
+ir_convert: interpret
+	$(IR_CONVERTER) --top=$(TOP) $(INPUT_FILE) > $(IR_FILE)
+
+optimize: ir_convert
+	$(OPT_MAIN) \
+	$(IR_FILE) > $(OPT_IR_FILE)
+
+codegen: optimize
+	$(CODEGEN_MAIN) \
+	--module_name=$(TOP) \
+	--pipeline_stages=5 \
+	--delay_model=unit \
+	--use_system_verilog=false \
+	$(OPT_IR_FILE) > $(OUTPUT_FILE)
 
 # Cocotb simulation
 simulate: 
