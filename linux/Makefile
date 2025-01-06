@@ -4,7 +4,7 @@ INPUT_FILE = fp16_mul.x
 IR_FILE = $(TOP).ir
 OPT_IR_FILE = $(TOP)_opt.ir
 OUTPUT_DIR = /home/haruhiko/xls/bazel-bin
-OUTPUT_FILE = fp16_mul_dslx.v
+#OUTPUT_FILE = fp16_mul_dslx.v
 
 SIM = icarus
 COCOTB_DIR = /home/haruhiko/Program/GoogleXLS_test-main/Crc32_Proc/cocotb
@@ -26,13 +26,18 @@ optimize: ir_convert
 	$(OPT_MAIN) \
 	$(IR_FILE) > $(OPT_IR_FILE)
 
-codegen: optimize
-	$(CODEGEN_MAIN) \
-	--module_name=$(TOP) \
-	--pipeline_stages=5 \
-	--delay_model=unit \
-	--use_system_verilog=false \
-	$(OPT_IR_FILE) > $(OUTPUT_FILE)
+# Verilog コード生成タスク (1〜10 のステージで生成)
+codegen:
+	mkdir -p $(OUTPUT_DIR)  # 出力ディレクトリを作成
+	@for STAGE in 1 2 3 4 5 6 7 8 9 10; do \
+		echo "Generating Verilog with pipeline_stages=$$STAGE..."; \
+		$(CODEGEN_MAIN) \
+		--module_name=$(TOP) \
+		--pipeline_stages=$$STAGE \
+		--delay_model=unit \
+		--use_system_verilog=false \
+		$(OPT_IR_FILE) > fp16_multiplier_stage_$$STAGE.v; \
+	done
 
 # Cocotb simulation
 simulate: 
