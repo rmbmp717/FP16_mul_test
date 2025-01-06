@@ -52,6 +52,15 @@ pub fn fp16_multiply(a: bits[16], b: bits[16]) -> bits[16] {
     let sign_a: bits[1] = a[15:16];  // 上位1ビットをスライス
     let sign_b: bits[1] = b[15:16];  // 上位1ビットをスライス
 
+    trace!(a);
+    trace!(b);
+    trace!(exp_a);
+    trace!(exp_b);
+    trace!(frac_a_raw);
+    trace!(frac_b_raw);
+    trace!(sign_a);
+    trace!(sign_b);
+
     // ----------------------------
     // 2. 特殊値の判定
     // ----------------------------
@@ -59,7 +68,7 @@ pub fn fp16_multiply(a: bits[16], b: bits[16]) -> bits[16] {
     let (is_inf_b, is_nan_b) = check_special_values(exp_b, frac_b_raw);
     let is_zero_a = (exp_a == bits[5]:0) & (frac_a_raw == bits[10]:0);
     let is_zero_b = (exp_b == bits[5]:0) & (frac_b_raw == bits[10]:0);
-
+    
     // ----------------------------
     // 3. 正常値の準備
     // ----------------------------
@@ -68,6 +77,9 @@ pub fn fp16_multiply(a: bits[16], b: bits[16]) -> bits[16] {
     let frac_a = leading_a ++ frac_a_raw;  // bits[11]
     let frac_b = leading_b ++ frac_b_raw;  // bits[11]
 
+    trace!(frac_a);
+    trace!(frac_b);
+
     // ----------------------------
     // 4. 乗算結果の計算
     // ----------------------------
@@ -75,24 +87,37 @@ pub fn fp16_multiply(a: bits[16], b: bits[16]) -> bits[16] {
     let exp_sum = u5_to_u8(exp_a) + u5_to_u8(exp_b) - bits[8]:15;  // Exponent 計算
     let frac_mult = u11_to_u22(frac_a) * u11_to_u22(frac_b);  // Fraction 乗算
 
+    trace!(frac_mult);
+
     // ----------------------------
     // 5. 正規化と丸め処理
     // ----------------------------
-    let leading_bit: bits[1] = frac_mult[21:22];  // 最上位1ビットをスライス
+    let leading_bit = frac_mult[21:22];  // 最上位1ビットをスライス
     let frac_adjusted = sel(leading_bit == bits[1]:1, frac_mult[11:22], frac_mult[10:21]);
     let exp_adjusted = exp_sum + sel(leading_bit == bits[1]:1, bits[8]:1, bits[8]:0);
 
     let guard_bit = sel(leading_bit == bits[1]:1, frac_mult[10:11], frac_mult[9:10]);
     let round_bit = sel(leading_bit == bits[1]:1, frac_mult[9:10], frac_mult[8:9]);
-    let sticky_bit = frac_mult[0:9] != bits[9]:0;
+    let sticky_bit = frac_mult[0:8] != bits[8]:0;
+
+    trace!(leading_bit);
+    trace!(frac_adjusted);
+
+    trace!(round_bit);
+    trace!(sticky_bit);
 
     // 丸め条件の判定
     let round_condition = (guard_bit & (round_bit | sticky_bit)) |
                           (guard_bit & !round_bit & !sticky_bit & frac_adjusted[0:1]);
 
     let frac_final = sel(round_condition, frac_adjusted + bits[11]:1, frac_adjusted);
-    let exp_final = exp_adjusted + sel(frac_final == bits[11]:0x7FF, bits[8]:1, bits[8]:0);
+    let exp_final = exp_adjusted + sel(frac_adjusted == bits[11]:0x7FF, bits[8]:1, bits[8]:0);
 
+    trace!(frac_adjusted);
+    trace!(round_condition);
+    trace!(frac_final);
+    trace!(exp_final);
+    
     // ----------------------------
     // 6. 特殊値・範囲外チェック
     // ----------------------------
@@ -104,18 +129,31 @@ pub fn fp16_multiply(a: bits[16], b: bits[16]) -> bits[16] {
 
     let frac_subnormal: bits[10] = (u11_to_u32(frac_final) >> u8_to_u32(bits[8]:1 - exp_final))[0:10];
 
+    trace!(is_inf_result);
+    trace!(is_zero_result);
+    trace!(frac_subnormal);
+
+    //trace!("=================================");
+
     // ----------------------------
     // 7. 最終結果の生成
     // ----------------------------
     let result = if is_nan_result {
+        trace!(is_nan_result);
         bits[16]:0x7E00  // NaN
     } else if is_inf_result {
+        trace!(is_inf_result);
         (sign_result ++ bits[5]:0x1F) ++ bits[10]:0  // Infinity
     } else if is_zero_result {
+        trace!(is_zero_result);
         (sign_result ++ bits[5]:0) ++ bits[10]:0  // Zero
     } else if exp_final <= bits[8]:0 {
+        trace!(exp_final);
         (sign_result ++ bits[5]:0) ++ frac_subnormal  // Subnormal
     } else {
+        trace!(sign_result);
+        trace!(exp_final[0:5]);
+        trace!(frac_final[0:10]);
         let normalized_result: bits[16] = (sign_result ++ exp_final[0:5]) ++ frac_final[0:10];
         normalized_result
     };
@@ -126,4 +164,14 @@ pub fn fp16_multiply(a: bits[16], b: bits[16]) -> bits[16] {
 // トップレベル関数
 pub fn fp16_multiplier(a: bits[16], b: bits[16]) -> bits[16] {
     fp16_multiply(a, b)
+}
+
+#[test]
+fn fp16_multiply_test_zero() {
+    // 0 * 任意の値 = 0
+    let input_a: bits[16] = bits[16]:0b0000000000000000;  // 0.0
+    let input_b: bits[16] = bits[16]:0b0100010001000000;  // 17.0
+    let expected_output: bits[16] = bits[16]:0b0000000000000000;  // 0.0
+    let output = fp16_multiply(input_a, input_b);
+    assert_eq(output, expected_output);
 }
