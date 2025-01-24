@@ -175,3 +175,101 @@ fn fp16_multiply_test_zero() {
     let output = fp16_multiply(input_a, input_b);
     assert_eq(output, expected_output);
 }
+
+#[test]
+fn fp16_multiply_test_zero_cases() {
+    // ゼロ同士の乗算
+    let input_a = bits[16]:0x0000; // 0.0
+    let input_b = bits[16]:0x0000; // 0.0
+    assert_eq(fp16_multiply(input_a, input_b), bits[16]:0x0000);
+
+    // ゼロと非ゼロの乗算
+    let input_c = bits[16]:0x4000; // 2.0
+    assert_eq(fp16_multiply(input_a, input_c), bits[16]:0x0000);
+}
+
+#[test]
+fn fp16_multiply_test_nan_cases() {
+    // NaNが絡む乗算
+    let nan = bits[16]:0x7E00; // NaN
+    let num = bits[16]:0x4400; // 4.0
+    
+    // NaN × 数値 = NaN
+    assert_eq(fp16_multiply(nan, num), nan);
+    
+    // 数値 × NaN = NaN
+    assert_eq(fp16_multiply(num, nan), nan);
+    
+    // NaN × NaN = NaN
+    assert_eq(fp16_multiply(nan, nan), nan);
+}
+
+#[test]
+fn fp16_multiply_test_infinity_cases() {
+    // 無限大のテスト
+    let inf = bits[16]:0x7C00; // +Inf
+    let zero = bits[16]:0x0000; // 0.0
+    let num = bits[16]:0x5000; // 32.0
+
+    // Inf × 数値 = Inf
+    assert_eq(fp16_multiply(inf, num), inf);
+    
+    // Inf × Inf = Inf
+    assert_eq(fp16_multiply(inf, inf), inf);
+    
+    // Inf × 0 = NaN
+    assert_eq(fp16_multiply(inf, zero), bits[16]:0x7E00);
+}
+
+#[test]
+fn fp16_multiply_test_sign_handling() {
+    // 符号処理のテスト
+    let pos = bits[16]:0x4800; // +8.0
+    let neg = bits[16]:0xC800; // -8.0
+    
+    // 正×正=正 (8.0 * 8.0 = 64.0)
+    assert_eq(fp16_multiply(pos, pos), bits[16]:0x5400); // 正しい64.0の表現
+    
+    // 正×負=負 (8.0 * -8.0 = -64.0)
+    assert_eq(fp16_multiply(pos, neg), bits[16]:0xD400); // 正しい-64.0の表現
+    
+    // 負×負=正 (-8.0 * -8.0 = 64.0)
+    assert_eq(fp16_multiply(neg, neg), bits[16]:0x5400); // 正しい64.0の表現
+}
+
+#[test]
+fn fp16_multiply_test_normal_numbers() {
+    // 通常数値の乗算
+    // 1.5 × 2.0 = 3.0
+    let a = bits[16]:0x3E00; // 1.5 (0_01111_1000000000)
+    let b = bits[16]:0x4000; // 2.0 (0_00001_0000000000)
+    assert_eq(fp16_multiply(a, b), bits[16]:0x0C00); // 3.0 (0_00001_1000000000)
+
+    // 最大値近傍のテスト
+    let max_normal = bits[16]:0x7BFF; // 65504.0
+    assert_eq(fp16_multiply(max_normal, max_normal), bits[16]:0x7C00); // Inf
+}
+
+#[test]
+fn fp16_multiply_test_subnormal() {
+    // 非正規化数のテスト
+    let min_subnormal = bits[16]:0x0001; // 最小の非正規化数
+    let result = fp16_multiply(min_subnormal, min_subnormal);
+    assert_eq(result, bits[16]:0x0000); // アンダーフローで0
+}
+
+#[test]
+fn fp16_multiply_test_rounding() {
+    // 丸め処理のテスト
+    // 1.0009765625 × 1.0009765625 = 1.001953125
+    let a = bits[16]:0x3C01; // 1.0009765625
+    let expected = bits[16]:0x3C02; // 1.001953125
+    assert_eq(fp16_multiply(a, a), expected);
+}
+
+#[test]
+fn fp16_multiply_test_overflow() {
+    // オーバーフローテスト
+    let huge = bits[16]:0x7BFF; // 最大正規化数 65504.0
+    assert_eq(fp16_multiply(huge, huge), bits[16]:0x7C00); // Infinity
+}
