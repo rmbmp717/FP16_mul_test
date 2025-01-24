@@ -16,7 +16,8 @@ OPT_MAIN = $(OUTPUT_DIR)/xls/tools/opt_main
 CODEGEN_MAIN = $(OUTPUT_DIR)/xls/tools/codegen_main
 
 interpret:
-	$(INTERPRETER) --alsologtostderr $(INPUT_FILE)
+	#$(INTERPRETER) --alsologtostderr $(INPUT_FILE)
+	$(INTERPRETER) $(INPUT_FILE)
 
 # Targets with dependencies
 ir_convert: interpret
@@ -27,7 +28,7 @@ optimize: ir_convert
 	$(IR_FILE) > $(OPT_IR_FILE)
 
 # Verilog コード生成タスク (1〜10 のステージで生成)
-codegen:
+codegen: optimize
 	mkdir -p $(OUTPUT_DIR)  # 出力ディレクトリを作成
 	@for STAGE in 1 2 3 4 5 6 7 8 9 10; do \
 		echo "Generating Verilog with pipeline_stages=$$STAGE..."; \
