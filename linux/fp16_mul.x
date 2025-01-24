@@ -1,6 +1,15 @@
 // DSLX code for FP16 multiply
-// [15] Sign, [14:10] Exponent (5 bits, bias=15), [9:0] Fraction (10 bits)
+//
+// 16-bit FP16 Format (IEEE 754 half-float):
+//   [15]    Sign
+//   [14:10] Exponent (5 bits, bias = 15)
+//   [9:0]   Fraction (10 bits)
+//
+// 特殊値 (Inf, NaN, Zero, Subnormal) も IEEE 754 half-float 準拠。
 
+////////////////////////////////////////////////////////////////////
+// 汎用関数
+////////////////////////////////////////////////////////////////////
 pub fn sel<N: u32>(cond: bits[1], a: bits[N], b: bits[N]) -> bits[N] {
     if cond == bits[1]:1 {
         a
@@ -9,6 +18,9 @@ pub fn sel<N: u32>(cond: bits[1], a: bits[N], b: bits[N]) -> bits[N] {
     }
 }
 
+////////////////////////////////////////////////////////////////////
+// ユーティリティ関数
+////////////////////////////////////////////////////////////////////
 pub fn u5_to_u8(x: bits[5]) -> bits[8] {
     bits[3]:0 ++ x
 }
@@ -25,24 +37,39 @@ pub fn u8_to_u32(x: bits[8]) -> bits[32] {
     bits[24]:0 ++ x
 }
 
-// Special-value check
+// 特殊値 (Inf, NaN) チェック
 fn check_special_values(exp: bits[5], frac: bits[10]) -> (bits[1], bits[1]) {
     let is_inf = (exp == bits[5]:0x1F) & (frac == bits[10]:0);
     let is_nan = (exp == bits[5]:0x1F) & (frac != bits[10]:0);
     (is_inf, is_nan)
 }
 
-// 5bit exponent => 9bit (上位4ビット0拡張)
-fn exp5_to_u9(e: bits[5]) -> bits[9] {
+// 5ビット指数 => 9ビット拡張 (符号なし拡張で上位4ビットを0)
+fn exp5_to_9(e: bits[5]) -> bits[9] {
     bits[4]:0 ++ e
 }
 
-const BIAS_9 = bits[9]:15;  // バイアス15を9ビットに
+// バイアス15を9ビットで保持
+const BIAS_9 = bits[9]:15;
+
+fn is_exp_final_gte_31(exp_9: bits[9]) -> bits[1] {
+    let sign = exp_9[8:9];
+    let magnitude = exp_9[0:8];
+    (sign == bits[1]:0) & (magnitude >= bits[8]:31)
+}
+
+fn is_exp_final_lt_1(exp_9: bits[9]) -> bits[1] {
+    let sign = exp_9[8:9];
+    let magnitude = exp_9[0:8];
+    (sign == bits[1]:1) | (magnitude < bits[8]:1)
+}
 
 pub fn fp16_multiply(a: bits[16], b: bits[16]) -> bits[16] {
-    // 1. 分解
-    let exp_a = a[10:15];
-    let exp_b = b[10:15];
+    // ----------------------------
+    // 1. ビット分解
+    // ----------------------------
+    let exp_a = a[10:15];  // Exponent (bits[5])
+    let exp_b = b[10:15];  // Exponent (bits[5])
     let frac_a_raw = a[0:10];
     let frac_b_raw = b[0:10];
     let sign_a = a[15:16];
@@ -57,45 +84,56 @@ pub fn fp16_multiply(a: bits[16], b: bits[16]) -> bits[16] {
     trace!(sign_a);
     trace!(sign_b);
 
-    // 2. 特殊値判定
+    // ----------------------------
+    // 2. 特殊値・ゼロ判定
+    // ----------------------------
     let (is_inf_a, is_nan_a) = check_special_values(exp_a, frac_a_raw);
     let (is_inf_b, is_nan_b) = check_special_values(exp_b, frac_b_raw);
     let is_zero_a = (exp_a == bits[5]:0) & (frac_a_raw == bits[10]:0);
     let is_zero_b = (exp_b == bits[5]:0) & (frac_b_raw == bits[10]:0);
 
-    // 3. hidden bit
+    // ----------------------------
+    // 3. hidden bit (正規数なら1, 非正規数なら0)
+    // ----------------------------
     let leading_a = sel(exp_a == bits[5]:0, bits[1]:0, bits[1]:1);
     let leading_b = sel(exp_b == bits[5]:0, bits[1]:0, bits[1]:1);
-    let frac_a = leading_a ++ frac_a_raw;  // bits[11]
-    let frac_b = leading_b ++ frac_b_raw;  // bits[11]
+    let frac_a = leading_a ++ frac_a_raw; // bits[11]
+    let frac_b = leading_b ++ frac_b_raw; // bits[11]
 
     trace!(frac_a);
     trace!(frac_b);
 
-    // 4. 乗算
+    // ----------------------------
+    // 4. 乗算 (符号・指数・仮数)
+    // ----------------------------
     let sign_result = sign_a ^ sign_b;
 
-    let exp_a_9 = exp5_to_u9(exp_a); // bits[9]
-    let exp_b_9 = exp5_to_u9(exp_b); // bits[9]
-    let exp_sum_9 = (exp_a_9 + exp_b_9) - BIAS_9; // bits[9] 2の補数的に
+    // 4-1. 指数を 9ビット に拡張し、バイアス15を差し引く
+    let exp_a_9 = exp5_to_9(exp_a); // bits[9]
+    let exp_b_9 = exp5_to_9(exp_b); // bits[9]
+    let exp_sum_9 = (exp_a_9 + exp_b_9) - BIAS_9; // bits[9] (2の補数的に扱う)
 
-    // (下の exp_sum は trace 用: bits[8])
+    // (trace用: 8ビット計算した exp_sum)
     let exp_sum = (u5_to_u8(exp_a) + u5_to_u8(exp_b)) - bits[8]:15;
     trace!(exp_sum);
 
+    // 4-2. 仮数乗算 (最大22ビット)
     let frac_mult = u11_to_u22(frac_a) * u11_to_u22(frac_b);
     trace!(frac_mult);
 
-    // 5. 正規化
-    let leading_bit = frac_mult[21:22];
+    // ----------------------------
+    // 5. 正規化 (leading bit)
+    // ----------------------------
+    let leading_bit = frac_mult[21:22]; // bit[21]
+    // leading_bit=1 なら 1ビット右シフト & exp+1, そうでなければシフト無し
     let frac_adjusted = sel(leading_bit == bits[1]:1,
                             frac_mult[11:22],
                             frac_mult[10:21]);
-
     let exp_adjusted_9 = exp_sum_9 + sel(leading_bit == bits[1]:1,
-                                         bits[9]:1,
+                                         bits[9]:1,   // +1
                                          bits[9]:0);
 
+    // 丸め用ビット抽出
     let guard_bit = sel(leading_bit == bits[1]:1,
                         frac_mult[10:11],
                         frac_mult[9:10]);
@@ -109,6 +147,9 @@ pub fn fp16_multiply(a: bits[16], b: bits[16]) -> bits[16] {
     trace!(round_bit);
     trace!(sticky_bit);
 
+    // ----------------------------
+    // 6. 丸め判定
+    // ----------------------------
     let round_condition = (guard_bit & (round_bit | sticky_bit)) |
                           (guard_bit & !round_bit & !sticky_bit & frac_adjusted[0:1]);
 
@@ -116,12 +157,14 @@ pub fn fp16_multiply(a: bits[16], b: bits[16]) -> bits[16] {
                              frac_adjusted + bits[11]:1,
                              frac_adjusted);
 
-    // frac_final_pre => bits[12] に拡張して ">= 0x800"
-    let frac_final_pre_12 = bits[1]:0 ++ frac_final_pre; // bits[12]
-    let cond_of = frac_final_pre_12 >= bits[12]:0x800;
+    // frac_final_pre を bits[12] に拡張して ">=0x800?" を判定 (オーバーフロー)
+    let frac_final_pre_12 = bits[1]:0 ++ frac_final_pre; // => bits[12]
+    let cond_of = frac_final_pre_12 >= bits[12]:0x800;   // 2^11 = 0x800
     let overflow_bit = sel(cond_of, bits[1]:1, bits[1]:0);
 
+    // 丸め後の指数計算
     let exp_final_9 = exp_adjusted_9 + (bits[8]:0 ++ overflow_bit); // bits[9]
+    // 仮数をさらに右1シフトするかどうか
     let frac_final_shifted = sel(overflow_bit == bits[1]:1,
                                  frac_final_pre >> bits[11]:1,
                                  frac_final_pre);
@@ -130,30 +173,34 @@ pub fn fp16_multiply(a: bits[16], b: bits[16]) -> bits[16] {
     trace!(round_condition);
     trace!(frac_final_shifted);
 
-    // trace 用に exp_final( bits[8] ) を計算しておく
+    // trace用: 8ビット計算の exp_final (あくまで参考)
     let exp_final = exp_sum
                     + sel(leading_bit == bits[1]:1, bits[8]:1, bits[8]:0)
                     + sel(frac_adjusted == bits[11]:0x7FF, bits[8]:1, bits[8]:0);
     trace!(exp_final);
 
-    // 6. 特殊ケース判定
+    // ----------------------------
+    // 7. オーバーフロー / アンダーフロー / 特殊値判定
+    // ----------------------------
     let is_nan_result = is_nan_a | is_nan_b | (is_inf_a & is_zero_b) | (is_zero_a & is_inf_b);
+
+    // Inf 判定 (指数>=31)
     let is_inf_a_chk = (exp_a == bits[5]:0x1F) & (frac_a_raw == bits[10]:0);
     let is_inf_b_chk = (exp_b == bits[5]:0x1F) & (frac_b_raw == bits[10]:0);
-
-    // ここで bits[9] の exp_final_9 を使ってオーバーフロー判定！
     let is_inf_result = is_inf_a_chk
                         | is_inf_b_chk
-                        | (exp_final_9 >= bits[9]:31);
+                        | is_exp_final_gte_31(exp_final_9);
 
+    // ゼロ演算 (掛け算前にどちらかが zero)
     let is_zero_result = is_zero_a | is_zero_b;
 
-    // サブノーマル: exp_final_9 < 1
-    let is_subnormal = exp_final_9 < bits[9]:1;
+    // サブノーマル (exp_final_9 < 1)
+    let is_subnormal = is_exp_final_lt_1(exp_final_9);
 
-    // サブノーマル用に仮数を右シフト
-    let shift_9 = bits[9]:1 - exp_final_9; // bits[9]
-    let shift_32 = bits[23]:0 ++ shift_9;  // bits[32]
+    // サブノーマル時にシフト
+    //   shift = 1 - exp_final_9 (bits[9] -> bits[32])
+    let shift_9 = bits[9]:1 - exp_final_9; 
+    let shift_32 = bits[23]:0 ++ shift_9;  // bits[32]に拡張
     let frac_final_32 = bits[21]:0 ++ frac_final_shifted; // bits[32]
     let frac_subnormal_32 = frac_final_32 >> shift_32;
     let frac_subnormal = frac_subnormal_32[0:10];
@@ -162,22 +209,26 @@ pub fn fp16_multiply(a: bits[16], b: bits[16]) -> bits[16] {
     trace!(is_zero_result);
     trace!(frac_subnormal);
 
-    // 7. 出力生成
+    // ----------------------------
+    // 8. 出力生成
+    // ----------------------------
     let result = if is_nan_result {
         trace!(is_nan_result);
-        bits[16]:0x7E00
+        bits[16]:0x7E00  // NaN
     } else if is_zero_result {
+        // ゼロが優先 (0×0など)
         trace!(is_zero_result);
         (sign_result ++ bits[5]:0) ++ bits[10]:0
     } else if is_inf_result {
+        // Inf
         trace!(is_inf_result);
         (sign_result ++ bits[5]:0x1F) ++ bits[10]:0
     } else if is_subnormal {
-        // exponent < 1 => subnormal
+        // サブノーマル
         trace!(exp_final_9);
         (sign_result ++ bits[5]:0) ++ frac_subnormal
     } else {
-        // normal
+        // 通常正規化数
         trace!(sign_result);
         let exp_out_5 = exp_final_9[0:5];
         let frac_out_10 = frac_final_shifted[0:10];
