@@ -1,3 +1,5 @@
+`timescale 1ns / 1ps
+
 module fp16_multiplier(
   input wire clk,
   input wire [15:0] a,
@@ -12,6 +14,13 @@ module fp16_multiplier(
   endfunction
   // lint_on MULTIPLY
 
+  // 追加: VCD ダンプ用ブロック
+  initial begin
+      $dumpfile("mul5.vcd");  // 出力するVCDファイル名
+      $dumpvars(0, fp16_multiplier);     // 第1引数: 階層 (0 はこのモジュールを最上位として)
+  end
+
+
   // ===== Pipe stage 0:
 
   // Registers for pipe stage 0:
@@ -25,224 +34,220 @@ module fp16_multiplier(
   // ===== Pipe stage 1:
   wire [4:0] p1_exp_a_comb;
   wire [4:0] p1_exp_b_comb;
-  wire p1_eq_817_comb;
-  wire p1_eq_818_comb;
-  wire p1_leading_a_comb;
+  wire p1_eq_869_comb;
+  wire p1_eq_870_comb;
   wire [9:0] p1_frac_a_raw_comb;
-  wire p1_leading_b_comb;
   wire [9:0] p1_frac_b_raw_comb;
+  wire p1_leading_a_comb;
+  wire p1_leading_b_comb;
+  wire p1_eq_894_comb;
+  wire p1_eq_895_comb;
+  wire p1_eq_896_comb;
+  wire p1_eq_897_comb;
+  wire p1_is_zero_a_comb;
+  wire p1_is_zero_b_comb;
+  wire p1_is_inf_a_chk_comb;
+  wire p1_is_inf_b_chk_comb;
+  wire [21:0] p1_frac_mult_comb;
+  wire p1_is_zero_result_comb;
   wire p1_sign_a_comb;
   wire p1_sign_b_comb;
-  wire [10:0] p1_concat_823_comb;
-  wire [10:0] p1_concat_824_comb;
-  wire [5:0] p1_add_829_comb;
-  wire p1_eq_834_comb;
-  wire p1_eq_835_comb;
-  wire p1_eq_836_comb;
-  wire p1_eq_837_comb;
+  wire p1_is_nan_comb;
+  wire p1_is_nan__1_comb;
+  wire p1_leading_bit_comb;
+  wire p1_bit_slice_879_comb;
+  wire p1_bit_slice_880_comb;
+  wire [7:0] p1_bit_slice_881_comb;
+  wire [10:0] p1_bit_slice_882_comb;
+  wire [10:0] p1_bit_slice_883_comb;
+  wire p1_bit_slice_884_comb;
+  wire [5:0] p1_add_889_comb;
+  wire p1_not_903_comb;
   wire p1_sign_result_comb;
+  wire p1_is_nan_result_comb;
   assign p1_exp_a_comb = p0_a[14:10];
   assign p1_exp_b_comb = p0_b[14:10];
-  assign p1_eq_817_comb = p1_exp_a_comb == 5'h00;
-  assign p1_eq_818_comb = p1_exp_b_comb == 5'h00;
-  assign p1_leading_a_comb = ~p1_eq_817_comb;
+  assign p1_eq_869_comb = p1_exp_a_comb == 5'h00;
+  assign p1_eq_870_comb = p1_exp_b_comb == 5'h00;
   assign p1_frac_a_raw_comb = p0_a[9:0];
-  assign p1_leading_b_comb = ~p1_eq_818_comb;
   assign p1_frac_b_raw_comb = p0_b[9:0];
+  assign p1_leading_a_comb = ~p1_eq_869_comb;
+  assign p1_leading_b_comb = ~p1_eq_870_comb;
+  assign p1_eq_894_comb = p1_frac_a_raw_comb == 10'h000;
+  assign p1_eq_895_comb = p1_frac_b_raw_comb == 10'h000;
+  assign p1_eq_896_comb = p1_exp_a_comb == 5'h1f;
+  assign p1_eq_897_comb = p1_exp_b_comb == 5'h1f;
+  assign p1_is_zero_a_comb = p1_eq_869_comb & p1_eq_894_comb;
+  assign p1_is_zero_b_comb = p1_eq_870_comb & p1_eq_895_comb;
+  assign p1_is_inf_a_chk_comb = p1_eq_896_comb & p1_eq_894_comb;
+  assign p1_is_inf_b_chk_comb = p1_eq_897_comb & p1_eq_895_comb;
+  assign p1_frac_mult_comb = umul22b_11b_x_11b({p1_leading_a_comb, p1_frac_a_raw_comb}, {p1_leading_b_comb, p1_frac_b_raw_comb});
+  assign p1_is_zero_result_comb = p1_is_zero_a_comb | p1_is_zero_b_comb;
   assign p1_sign_a_comb = p0_a[15];
   assign p1_sign_b_comb = p0_b[15];
-  assign p1_concat_823_comb = {p1_leading_a_comb, p1_frac_a_raw_comb};
-  assign p1_concat_824_comb = {p1_leading_b_comb, p1_frac_b_raw_comb};
-  assign p1_add_829_comb = {1'h0, p1_exp_a_comb} + {1'h0, p1_exp_b_comb};
-  assign p1_eq_834_comb = p1_frac_a_raw_comb == 10'h000;
-  assign p1_eq_835_comb = p1_frac_b_raw_comb == 10'h000;
-  assign p1_eq_836_comb = p1_exp_a_comb == 5'h1f;
-  assign p1_eq_837_comb = p1_exp_b_comb == 5'h1f;
+  assign p1_is_nan_comb = ~(~p1_eq_896_comb | p1_eq_894_comb);
+  assign p1_is_nan__1_comb = ~(~p1_eq_897_comb | p1_eq_895_comb);
+  assign p1_leading_bit_comb = p1_frac_mult_comb[21];
+  assign p1_bit_slice_879_comb = p1_frac_mult_comb[8];
+  assign p1_bit_slice_880_comb = p1_frac_mult_comb[9];
+  assign p1_bit_slice_881_comb = p1_frac_mult_comb[7:0];
+  assign p1_bit_slice_882_comb = p1_frac_mult_comb[20:10];
+  assign p1_bit_slice_883_comb = p1_frac_mult_comb[21:11];
+  assign p1_bit_slice_884_comb = p1_frac_mult_comb[10];
+  assign p1_add_889_comb = {1'h0, p1_exp_a_comb} + {1'h0, p1_exp_b_comb};
+  assign p1_not_903_comb = ~p1_is_zero_result_comb;
   assign p1_sign_result_comb = p1_sign_a_comb ^ p1_sign_b_comb;
+  assign p1_is_nan_result_comb = p1_is_nan_comb | p1_is_nan__1_comb | p1_is_inf_a_chk_comb & p1_eq_870_comb & p1_eq_895_comb | p1_eq_869_comb & p1_eq_894_comb & p1_is_inf_b_chk_comb;
 
   // Registers for pipe stage 1:
-  reg p1_eq_817;
-  reg p1_eq_818;
-  reg [10:0] p1_concat_823;
-  reg [10:0] p1_concat_824;
-  reg [5:0] p1_add_829;
-  reg p1_eq_834;
-  reg p1_eq_835;
-  reg p1_eq_836;
-  reg p1_eq_837;
+  reg p1_leading_bit;
+  reg p1_bit_slice_879;
+  reg p1_bit_slice_880;
+  reg [7:0] p1_bit_slice_881;
+  reg [10:0] p1_bit_slice_882;
+  reg [10:0] p1_bit_slice_883;
+  reg p1_bit_slice_884;
+  reg [5:0] p1_add_889;
+  reg p1_is_inf_a_chk;
+  reg p1_is_inf_b_chk;
+  reg p1_not_903;
   reg p1_sign_result;
+  reg p1_is_nan_result;
   always @ (posedge clk) begin
-    p1_eq_817 <= p1_eq_817_comb;
-    p1_eq_818 <= p1_eq_818_comb;
-    p1_concat_823 <= p1_concat_823_comb;
-    p1_concat_824 <= p1_concat_824_comb;
-    p1_add_829 <= p1_add_829_comb;
-    p1_eq_834 <= p1_eq_834_comb;
-    p1_eq_835 <= p1_eq_835_comb;
-    p1_eq_836 <= p1_eq_836_comb;
-    p1_eq_837 <= p1_eq_837_comb;
+    p1_leading_bit <= p1_leading_bit_comb;
+    p1_bit_slice_879 <= p1_bit_slice_879_comb;
+    p1_bit_slice_880 <= p1_bit_slice_880_comb;
+    p1_bit_slice_881 <= p1_bit_slice_881_comb;
+    p1_bit_slice_882 <= p1_bit_slice_882_comb;
+    p1_bit_slice_883 <= p1_bit_slice_883_comb;
+    p1_bit_slice_884 <= p1_bit_slice_884_comb;
+    p1_add_889 <= p1_add_889_comb;
+    p1_is_inf_a_chk <= p1_is_inf_a_chk_comb;
+    p1_is_inf_b_chk <= p1_is_inf_b_chk_comb;
+    p1_not_903 <= p1_not_903_comb;
     p1_sign_result <= p1_sign_result_comb;
+    p1_is_nan_result <= p1_is_nan_result_comb;
   end
 
   // ===== Pipe stage 2:
-  wire [21:0] p2_frac_mult_comb;
-  wire p2_leading_bit_comb;
-  wire p2_is_zero_a_comb;
-  wire p2_is_zero_b_comb;
-  wire p2_is_inf_a_chk_comb;
-  wire p2_is_inf_b_chk_comb;
   wire p2_round_bit_comb;
   wire p2_sticky_bit_comb;
   wire [10:0] p2_frac_adjusted_comb;
-  wire p2_is_zero_result_comb;
-  wire p2_is_nan_comb;
-  wire p2_is_nan__1_comb;
   wire p2_guard_bit_comb;
-  wire p2_or_878_comb;
-  wire p2_not_879_comb;
-  wire p2_not_880_comb;
-  wire p2_bit_slice_881_comb;
-  wire [6:0] p2_add_882_comb;
-  wire p2_not_888_comb;
-  wire p2_is_nan_result_comb;
-  assign p2_frac_mult_comb = umul22b_11b_x_11b(p1_concat_823, p1_concat_824);
-  assign p2_leading_bit_comb = p2_frac_mult_comb[21];
-  assign p2_is_zero_a_comb = p1_eq_817 & p1_eq_834;
-  assign p2_is_zero_b_comb = p1_eq_818 & p1_eq_835;
-  assign p2_is_inf_a_chk_comb = p1_eq_836 & p1_eq_834;
-  assign p2_is_inf_b_chk_comb = p1_eq_837 & p1_eq_835;
-  assign p2_round_bit_comb = p2_leading_bit_comb ? p2_frac_mult_comb[9] : p2_frac_mult_comb[8];
-  assign p2_sticky_bit_comb = p2_frac_mult_comb[7:0] != 8'h00;
-  assign p2_frac_adjusted_comb = p2_leading_bit_comb ? p2_frac_mult_comb[21:11] : p2_frac_mult_comb[20:10];
-  assign p2_is_zero_result_comb = p2_is_zero_a_comb | p2_is_zero_b_comb;
-  assign p2_is_nan_comb = ~(~p1_eq_836 | p1_eq_834);
-  assign p2_is_nan__1_comb = ~(~p1_eq_837 | p1_eq_835);
-  assign p2_guard_bit_comb = p2_leading_bit_comb ? p2_frac_mult_comb[10] : p2_frac_mult_comb[9];
-  assign p2_or_878_comb = p2_round_bit_comb | p2_sticky_bit_comb;
-  assign p2_not_879_comb = ~p2_round_bit_comb;
-  assign p2_not_880_comb = ~p2_sticky_bit_comb;
-  assign p2_bit_slice_881_comb = p2_frac_adjusted_comb[0];
-  assign p2_add_882_comb = {1'h0, p1_add_829} + {6'h00, p2_leading_bit_comb};
-  assign p2_not_888_comb = ~p2_is_zero_result_comb;
-  assign p2_is_nan_result_comb = p2_is_nan_comb | p2_is_nan__1_comb | p2_is_inf_a_chk_comb & p1_eq_818 & p1_eq_835 | p1_eq_817 & p1_eq_834 & p2_is_inf_b_chk_comb;
+  wire p2_round_condition_comb;
+  wire [11:0] p2_frac_adjusted_12_comb;
+  wire [11:0] p2_one_12__1_comb;
+  wire [11:0] p2_frac_no_of_12_comb;
+  assign p2_round_bit_comb = p1_leading_bit ? p1_bit_slice_880 : p1_bit_slice_879;
+  assign p2_sticky_bit_comb = p1_bit_slice_881 != 8'h00;
+  assign p2_frac_adjusted_comb = p1_leading_bit ? p1_bit_slice_883 : p1_bit_slice_882;
+  assign p2_guard_bit_comb = p1_leading_bit ? p1_bit_slice_884 : p1_bit_slice_880;
+  assign p2_round_condition_comb = p2_guard_bit_comb & (p2_round_bit_comb | p2_sticky_bit_comb) | p2_guard_bit_comb & ~p2_round_bit_comb & ~p2_sticky_bit_comb & p2_frac_adjusted_comb[0];
+  assign p2_frac_adjusted_12_comb = {1'h0, p2_frac_adjusted_comb};
+  assign p2_one_12__1_comb = {11'h000, p2_round_condition_comb};
+  assign p2_frac_no_of_12_comb = p2_frac_adjusted_12_comb + p2_one_12__1_comb;
 
   // Registers for pipe stage 2:
-  reg [10:0] p2_frac_adjusted;
-  reg p2_guard_bit;
-  reg p2_or_878;
-  reg p2_not_879;
-  reg p2_not_880;
-  reg p2_bit_slice_881;
-  reg [6:0] p2_add_882;
+  reg p2_leading_bit;
+  reg [11:0] p2_frac_no_of_12;
+  reg [5:0] p2_add_889;
   reg p2_is_inf_a_chk;
   reg p2_is_inf_b_chk;
-  reg p2_not_888;
+  reg p2_not_903;
   reg p2_sign_result;
   reg p2_is_nan_result;
   always @ (posedge clk) begin
-    p2_frac_adjusted <= p2_frac_adjusted_comb;
-    p2_guard_bit <= p2_guard_bit_comb;
-    p2_or_878 <= p2_or_878_comb;
-    p2_not_879 <= p2_not_879_comb;
-    p2_not_880 <= p2_not_880_comb;
-    p2_bit_slice_881 <= p2_bit_slice_881_comb;
-    p2_add_882 <= p2_add_882_comb;
-    p2_is_inf_a_chk <= p2_is_inf_a_chk_comb;
-    p2_is_inf_b_chk <= p2_is_inf_b_chk_comb;
-    p2_not_888 <= p2_not_888_comb;
+    p2_leading_bit <= p1_leading_bit;
+    p2_frac_no_of_12 <= p2_frac_no_of_12_comb;
+    p2_add_889 <= p1_add_889;
+    p2_is_inf_a_chk <= p1_is_inf_a_chk;
+    p2_is_inf_b_chk <= p1_is_inf_b_chk;
+    p2_not_903 <= p1_not_903;
     p2_sign_result <= p1_sign_result;
-    p2_is_nan_result <= p2_is_nan_result_comb;
+    p2_is_nan_result <= p1_is_nan_result;
   end
 
   // ===== Pipe stage 3:
-  wire [7:0] p3_concat_924_comb;
-  wire p3_round_condition_comb;
-  wire [10:0] p3_add_927_comb;
-  wire [7:0] p3_add_929_comb;
-  wire [10:0] p3_frac_final_pre_comb;
-  wire [7:0] p3_sub_932_comb;
-  wire [4:0] p3_exp_out_5_comb;
-  wire [31:0] p3_frac_final_32_comb;
-  wire [8:0] p3_shift_9_comb;
-  wire p3_or_reduce_938_comb;
-  wire p3_or_reduce_939_comb;
-  wire p3_bit_slice_940_comb;
-  wire p3_sign_comb;
-  wire [9:0] p3_frac_out_10_comb;
-  assign p3_concat_924_comb = {1'h0, p2_add_882};
-  assign p3_round_condition_comb = p2_guard_bit & p2_or_878 | p2_guard_bit & p2_not_879 & p2_not_880 & p2_bit_slice_881;
-  assign p3_add_927_comb = p2_frac_adjusted + 11'h001;
-  assign p3_add_929_comb = p3_concat_924_comb + 8'hf1;
-  assign p3_frac_final_pre_comb = p3_round_condition_comb ? p3_add_927_comb : p2_frac_adjusted;
-  assign p3_sub_932_comb = 8'h10 - p3_concat_924_comb;
-  assign p3_exp_out_5_comb = p3_add_929_comb[4:0];
-  assign p3_frac_final_32_comb = {21'h00_0000, p3_frac_final_pre_comb};
-  assign p3_shift_9_comb = {{1{p3_sub_932_comb[7]}}, p3_sub_932_comb};
-  assign p3_or_reduce_938_comb = |p3_add_929_comb[7:5];
-  assign p3_or_reduce_939_comb = |p3_add_929_comb[7:1];
-  assign p3_bit_slice_940_comb = p3_add_929_comb[0];
-  assign p3_sign_comb = p3_add_929_comb[7];
-  assign p3_frac_out_10_comb = p3_frac_final_pre_comb[9:0];
+  wire p3_cond_of_comb;
+  wire [6:0] p3_concat_981_comb;
+  wire [1:0] p3_add_986_comb;
+  wire [6:0] p3_add_988_comb;
+  wire [5:0] p3_add_989_comb;
+  wire [10:0] p3_frac_no_of_11_comb;
+  wire [10:0] p3_frac_of_shifted_11_comb;
+  wire [6:0] p3_add_995_comb;
+  wire [7:0] p3_add_996_comb;
+  wire [10:0] p3_frac_final_11_comb;
+  assign p3_cond_of_comb = p2_frac_no_of_12[11];
+  assign p3_concat_981_comb = {1'h0, p2_add_889};
+  assign p3_add_986_comb = {1'h0, p2_leading_bit} + {1'h0, p3_cond_of_comb};
+  assign p3_add_988_comb = p3_concat_981_comb + {6'h00, p2_leading_bit};
+  assign p3_add_989_comb = {5'h00, p3_cond_of_comb} + 6'h31;
+  assign p3_frac_no_of_11_comb = p2_frac_no_of_12[10:0];
+  assign p3_frac_of_shifted_11_comb = p2_frac_no_of_12[11:1];
+  assign p3_add_995_comb = p3_concat_981_comb + {5'h00, p3_add_986_comb};
+  assign p3_add_996_comb = {1'h0, p3_add_988_comb} + {{2{p3_add_989_comb[5]}}, p3_add_989_comb};
+  assign p3_frac_final_11_comb = p3_cond_of_comb ? p3_frac_of_shifted_11_comb : p3_frac_no_of_11_comb;
 
   // Registers for pipe stage 3:
-  reg [4:0] p3_exp_out_5;
-  reg [31:0] p3_frac_final_32;
-  reg [8:0] p3_shift_9;
-  reg p3_or_reduce_938;
-  reg p3_or_reduce_939;
-  reg p3_bit_slice_940;
-  reg p3_sign;
-  reg [9:0] p3_frac_out_10;
+  reg [6:0] p3_add_995;
+  reg [7:0] p3_add_996;
+  reg [10:0] p3_frac_final_11;
   reg p3_is_inf_a_chk;
   reg p3_is_inf_b_chk;
-  reg p3_not_888;
+  reg p3_not_903;
   reg p3_sign_result;
   reg p3_is_nan_result;
   always @ (posedge clk) begin
-    p3_exp_out_5 <= p3_exp_out_5_comb;
-    p3_frac_final_32 <= p3_frac_final_32_comb;
-    p3_shift_9 <= p3_shift_9_comb;
-    p3_or_reduce_938 <= p3_or_reduce_938_comb;
-    p3_or_reduce_939 <= p3_or_reduce_939_comb;
-    p3_bit_slice_940 <= p3_bit_slice_940_comb;
-    p3_sign <= p3_sign_comb;
-    p3_frac_out_10 <= p3_frac_out_10_comb;
+    p3_add_995 <= p3_add_995_comb;
+    p3_add_996 <= p3_add_996_comb;
+    p3_frac_final_11 <= p3_frac_final_11_comb;
     p3_is_inf_a_chk <= p2_is_inf_a_chk;
     p3_is_inf_b_chk <= p2_is_inf_b_chk;
-    p3_not_888 <= p2_not_888;
+    p3_not_903 <= p2_not_903;
     p3_sign_result <= p2_sign_result;
     p3_is_nan_result <= p2_is_nan_result;
   end
 
   // ===== Pipe stage 4:
+  wire [4:0] p4_exp_out_5_comb;
+  wire [31:0] p4_frac_final_32_comb;
+  wire [8:0] p4_shift_9_comb;
   wire [31:0] p4_frac_subnormal_32_comb;
+  wire p4_sign_comb;
+  wire [9:0] p4_frac_out_10_comb;
   wire [9:0] p4_frac_subnormal_comb;
   wire p4_is_subnormal_comb;
   wire p4_is_inf_result_comb;
-  wire [14:0] p4_sel_980_comb;
-  assign p4_frac_subnormal_32_comb = p3_shift_9 >= 9'h020 ? 32'h0000_0000 : p3_frac_final_32 >> p3_shift_9;
+  wire [14:0] p4_sel_1039_comb;
+  assign p4_exp_out_5_comb = p3_add_996[4:0];
+  assign p4_frac_final_32_comb = {21'h00_0000, p3_frac_final_11};
+  assign p4_shift_9_comb = 9'h010 - {2'h0, p3_add_995};
+  assign p4_frac_subnormal_32_comb = p4_shift_9_comb >= 9'h020 ? 32'h0000_0000 : p4_frac_final_32_comb >> p4_shift_9_comb;
+  assign p4_sign_comb = p3_add_996[7];
+  assign p4_frac_out_10_comb = p3_frac_final_11[9:0];
   assign p4_frac_subnormal_comb = p4_frac_subnormal_32_comb[9:0];
-  assign p4_is_subnormal_comb = p3_sign | ~(p3_or_reduce_939 | p3_bit_slice_940);
-  assign p4_is_inf_result_comb = p3_is_inf_a_chk | p3_is_inf_b_chk | ~(p3_sign | ~(p3_or_reduce_938 | (&p3_exp_out_5)));
-  assign p4_sel_980_comb = p4_is_subnormal_comb ? {5'h00, p4_frac_subnormal_comb} : {p3_exp_out_5, p3_frac_out_10};
+  assign p4_is_subnormal_comb = p4_sign_comb | ~((|p3_add_996[7:1]) | p3_add_996[0]);
+  assign p4_is_inf_result_comb = p3_is_inf_a_chk | p3_is_inf_b_chk | ~(p4_sign_comb | ~((|p3_add_996[7:5]) | (&p4_exp_out_5_comb)));
+  assign p4_sel_1039_comb = p4_is_subnormal_comb ? {5'h00, p4_frac_subnormal_comb} : {p4_exp_out_5_comb, p4_frac_out_10_comb};
 
   // Registers for pipe stage 4:
   reg p4_is_inf_result;
-  reg [14:0] p4_sel_980;
-  reg p4_not_888;
+  reg [14:0] p4_sel_1039;
+  reg p4_not_903;
   reg p4_sign_result;
   reg p4_is_nan_result;
   always @ (posedge clk) begin
     p4_is_inf_result <= p4_is_inf_result_comb;
-    p4_sel_980 <= p4_sel_980_comb;
-    p4_not_888 <= p3_not_888;
+    p4_sel_1039 <= p4_sel_1039_comb;
+    p4_not_903 <= p3_not_903;
     p4_sign_result <= p3_sign_result;
     p4_is_nan_result <= p3_is_nan_result;
   end
 
   // ===== Pipe stage 5:
   wire [15:0] p5_result_comb;
-  assign p5_result_comb = p4_is_nan_result ? 16'h7e00 : {p4_sign_result, (p4_is_inf_result ? 15'h7c00 : p4_sel_980) & {15{p4_not_888}}};
+  assign p5_result_comb = p4_is_nan_result ? 16'h7e00 : {p4_sign_result, (p4_is_inf_result ? 15'h7c00 : p4_sel_1039) & {15{p4_not_903}}};
 
   // Registers for pipe stage 5:
   reg [15:0] p5_result;

@@ -16,8 +16,8 @@ OPT_MAIN = $(OUTPUT_DIR)/xls/tools/opt_main
 CODEGEN_MAIN = $(OUTPUT_DIR)/xls/tools/codegen_main
 
 interpret:
-	#$(INTERPRETER) --alsologtostderr $(INPUT_FILE)
-	$(INTERPRETER) $(INPUT_FILE)
+	$(INTERPRETER) --alsologtostderr $(INPUT_FILE)
+	#$(INTERPRETER) $(INPUT_FILE)
 
 # Targets with dependencies
 ir_convert: interpret
@@ -42,7 +42,7 @@ codegen: optimize
 
 # Cocotb simulation
 simulate: 
-	iverilog -o sim.vvp -D COCOTB_SIM=1 -g2012 fp16_mul.v
+	iverilog -o sim.vvp -D COCOTB_SIM=1 -g2012 fp16_multiplier_stage_5.v
 	MODULE=fp16_mul_test TOPLEVEL=fp16_multiplier TOPLEVEL_LANG=verilog \
 	SIM=$(SIM) vvp -M $(shell cocotb-config --lib-dir) \
 		-m libcocotbvpi_icarus sim.vvp
