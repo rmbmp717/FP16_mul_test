@@ -166,12 +166,13 @@ pub fn fp16_multiplier(a: bits[16], b: bits[16]) -> bits[16] {
     fp16_multiply(a, b)
 }
 
+// TEST function
 #[test]
 fn fp16_multiply_test_zero() {
-    // 0 * 任意の値 = 0
-    let input_a: bits[16] = bits[16]:0b0000000000000000;  // 0.0
-    let input_b: bits[16] = bits[16]:0b0100010001000000;  // 17.0
-    let expected_output: bits[16] = bits[16]:0b0000000000000000;  // 0.0
+    // 0 * 17.0 = 0
+    let input_a: bits[16] = bits[16]:0x0000;   // 0.0
+    let input_b: bits[16] = bits[16]:0x4C40;   // 17.0 (exponent=10011=19, fraction=0100000000=0x40)
+    let expected_output: bits[16] = bits[16]:0x0000; // 0.0
     let output = fp16_multiply(input_a, input_b);
     assert_eq(output, expected_output);
 }
@@ -183,7 +184,7 @@ fn fp16_multiply_test_zero_cases() {
     let input_b = bits[16]:0x0000; // 0.0
     assert_eq(fp16_multiply(input_a, input_b), bits[16]:0x0000);
 
-    // ゼロと非ゼロの乗算
+    // ゼロと非ゼロ（2.0）の乗算
     let input_c = bits[16]:0x4000; // 2.0
     assert_eq(fp16_multiply(input_a, input_c), bits[16]:0x0000);
 }
@@ -191,15 +192,15 @@ fn fp16_multiply_test_zero_cases() {
 #[test]
 fn fp16_multiply_test_nan_cases() {
     // NaNが絡む乗算
-    let nan = bits[16]:0x7E00; // NaN
-    let num = bits[16]:0x4400; // 4.0
-    
+    let nan = bits[16]:0x7E00;  // NaN (exponent=11111, fraction=1000000000)
+    let num = bits[16]:0x4400;  // 4.0 (exponent=10001=17, fraction=0000000000)
+
     // NaN × 数値 = NaN
     assert_eq(fp16_multiply(nan, num), nan);
-    
+
     // 数値 × NaN = NaN
     assert_eq(fp16_multiply(num, nan), nan);
-    
+
     // NaN × NaN = NaN
     assert_eq(fp16_multiply(nan, nan), nan);
 }
@@ -207,61 +208,62 @@ fn fp16_multiply_test_nan_cases() {
 #[test]
 fn fp16_multiply_test_infinity_cases() {
     // 無限大のテスト
-    let inf = bits[16]:0x7C00; // +Inf
-    let zero = bits[16]:0x0000; // 0.0
-    let num = bits[16]:0x5000; // 32.0
+    let inf = bits[16]:0x7C00;   // +∞ (exponent=11111, fraction=0)
+    let zero = bits[16]:0x0000;  // 0.0
+    let num = bits[16]:0x5000;   // 32.0 (exponent=10100=20, fraction=0)
 
     // Inf × 数値 = Inf
     assert_eq(fp16_multiply(inf, num), inf);
-    
+
     // Inf × Inf = Inf
     assert_eq(fp16_multiply(inf, inf), inf);
-    
-    // Inf × 0 = NaN
+
+    // Inf × 0 = NaN (IEEE754ルール: ∞×0 → NaN)
     assert_eq(fp16_multiply(inf, zero), bits[16]:0x7E00);
 }
 
 #[test]
 fn fp16_multiply_test_sign_handling() {
     // 符号処理のテスト
-    let pos = bits[16]:0x4800; // +8.0
+    let pos = bits[16]:0x4800; // +8.0  (exponent=10010=18, fraction=0)
     let neg = bits[16]:0xC800; // -8.0
-    
+
     // 正×正=正 (8.0 * 8.0 = 64.0)
-    assert_eq(fp16_multiply(pos, pos), bits[16]:0x5400); // 正しい64.0の表現
-    
+    assert_eq(fp16_multiply(pos, pos), bits[16]:0x5400); // 64.0 (exponent=10101=21, fraction=0)
+
     // 正×負=負 (8.0 * -8.0 = -64.0)
-    assert_eq(fp16_multiply(pos, neg), bits[16]:0xD400); // 正しい-64.0の表現
-    
+    assert_eq(fp16_multiply(pos, neg), bits[16]:0xD400); // -64.0
+
     // 負×負=正 (-8.0 * -8.0 = 64.0)
-    assert_eq(fp16_multiply(neg, neg), bits[16]:0x5400); // 正しい64.0の表現
+    assert_eq(fp16_multiply(neg, neg), bits[16]:0x5400);
 }
 
 #[test]
 fn fp16_multiply_test_normal_numbers() {
-    // 通常数値の乗算
     // 1.5 × 2.0 = 3.0
-    let a = bits[16]:0x3E00; // 1.5 (0_01111_1000000000)
-    let b = bits[16]:0x4000; // 2.0 (0_00001_0000000000)
-    assert_eq(fp16_multiply(a, b), bits[16]:0x0C00); // 3.0 (0_00001_1000000000)
+    let a = bits[16]:0x3E00; // 1.5 (exponent=01111=15, fraction=1000000000=0.5)
+    let b = bits[16]:0x4000; // 2.0 (exponent=10000=16, fraction=0)
+    assert_eq(fp16_multiply(a, b), bits[16]:0x4200); // 3.0 (exponent=10000=16, fraction=1000000000=0.5)
 
-    // 最大値近傍のテスト
-    let max_normal = bits[16]:0x7BFF; // 65504.0
+    // 最大値近傍のテスト (65504.0)
+    let max_normal = bits[16]:0x7BFF; // exponent=11110=30, fraction=1111111111
     assert_eq(fp16_multiply(max_normal, max_normal), bits[16]:0x7C00); // Inf
 }
 
 #[test]
 fn fp16_multiply_test_subnormal() {
-    // 非正規化数のテスト
-    let min_subnormal = bits[16]:0x0001; // 最小の非正規化数
+    // 非正規化数のテスト: 最小サブノーマル × 最小サブノーマル
+    let min_subnormal = bits[16]:0x0001; // 最小サブノーマル = 2^-24
     let result = fp16_multiply(min_subnormal, min_subnormal);
-    assert_eq(result, bits[16]:0x0000); // アンダーフローで0
+    // 非常に小さいのでアンダーフロー→0
+    assert_eq(result, bits[16]:0x0000);
 }
 
 #[test]
 fn fp16_multiply_test_rounding() {
     // 丸め処理のテスト
     // 1.0009765625 × 1.0009765625 = 1.001953125
+    // 1.0009765625 = exponent=01111(15), fraction=0000000001(1/1024)
     let a = bits[16]:0x3C01; // 1.0009765625
     let expected = bits[16]:0x3C02; // 1.001953125
     assert_eq(fp16_multiply(a, a), expected);
