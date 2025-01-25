@@ -1,5 +1,4 @@
 `timescale 1ns / 1ps
-
 module fp16_multiplier(
   input wire clk,
   input wire [15:0] a,
@@ -13,13 +12,6 @@ module fp16_multiplier(
     end
   endfunction
   // lint_on MULTIPLY
-
-  // 追加: VCD ダンプ用ブロック
-  initial begin
-      $dumpfile("mul5.vcd");  // 出力するVCDファイル名
-      $dumpvars(0, fp16_multiplier);     // 第1引数: 階層 (0 はこのモジュールを最上位として)
-  end
-
 
   // ===== Pipe stage 0:
 

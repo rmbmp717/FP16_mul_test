@@ -1,5 +1,3 @@
-`timescale 1ns / 1ps
-
 module fp16_multiplier(
   input wire clk,
   input wire [15:0] a,

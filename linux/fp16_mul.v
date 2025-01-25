@@ -117,8 +117,8 @@ endfunction
 module fp16_multiplier (
     input [15:0] a,  // 入力A (FP16)
     input [15:0] b,  // 入力B (FP16)
-    output [15:0] result  // 出力結果 (FP16)
+    output [15:0] out  // 出力結果 (FP16)
 );
-    assign result = fp16_multiply(a,b);
+    assign out = fp16_multiply(a,b);
 
 endmodule

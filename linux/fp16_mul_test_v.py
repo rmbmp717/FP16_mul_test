@@ -20,7 +20,7 @@ async def FP16_mul_test(dut):
     print("==========================================================================")    
 
     # Start clock generation
-    cocotb.start_soon(generate_clock(dut))
+    #cocotb.start_soon(generate_clock(dut))
     
     # Initialize input values
     dut.a.value = 0
@@ -59,9 +59,6 @@ async def FP16_mul_test(dut):
     
 async def fp16_test(dut, real_a, real_b):
 
-    # clk
-    await RisingEdge(dut.clk)
-
     # Test with a
     value_a = real_a
     fp16_result_a = float_to_fp16(value_a)
@@ -96,7 +93,7 @@ async def fp16_test(dut, real_a, real_b):
     
     #print(f"A:{value_a:.5f}, \tB:{value_b:.5f}, \tRTL value: {real_value:.8f}, \t\tValue_c: {value_c:.8f}")
     #print(f"A:0x{fp16_result_a:04X}, \tB:0x{fp16_result_b:04X}, \tRTL value: 0x{fp16_verilog_result:04X}, \tValue_c: 0x{fp16_value_c:04X}")
-    if abs(real_value - value_c) > 0.01 * abs(real_value) and abs(real_value)>0.00001 :
+    if abs(real_value - value_c) > 0.01 * abs(real_value) and abs(real_value)>0.000001 :
         print(f"A:{value_a:.6f}, \tB:{value_b:.6f}, \tRTL value: {real_value:.8f}, \tValue_c: {value_c:.8f}")
         print(f"A:0x{fp16_result_a:04X}, \tB:0x{fp16_result_b:04X}, \tRTL value: 0x{fp16_verilog_result:04X}, \tValue_c: 0x{fp16_value_c:04X}")
         print(f"Err rate : {value_c/real_value:.3f}")
@@ -105,18 +102,10 @@ async def fp16_test(dut, real_a, real_b):
         print("Warning: Difference between RTL value and calculated value exceeds 1.0 %")
     
 async def fp16_mul(dut, fp_a, fp_b):
-    await RisingEdge(dut.clk)
     dut.a.value = fp_a
     dut.b.value = fp_b
-    #await Timer(100, units="ns")
+    await Timer(100, units="ns")
     # Read and print the result
-    await RisingEdge(dut.clk)
-    await RisingEdge(dut.clk)
-    await RisingEdge(dut.clk)
-    await RisingEdge(dut.clk)
-    await RisingEdge(dut.clk)
-    await RisingEdge(dut.clk)
-    await RisingEdge(dut.clk)
     bin_str = dut.out.value.binstr  # 'binstr' は '0', '1', 'x', 'z' が含まれる
     bin_str_sanitized = bin_str.replace('x', '0').replace('z', '0')
     result = int(bin_str_sanitized, 2)  # 修正点

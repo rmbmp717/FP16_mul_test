@@ -4,7 +4,7 @@ INPUT_FILE = fp16_mul.x
 IR_FILE = $(TOP).ir
 OPT_IR_FILE = $(TOP)_opt.ir
 OUTPUT_DIR = /home/haruhiko/xls/bazel-bin
-#OUTPUT_FILE = fp16_mul_dslx.v
+OUTPUT_FILE = fp16_multiplier_stage_5.v
 
 SIM = icarus
 COCOTB_DIR = /home/haruhiko/Program/GoogleXLS_test-main/Crc32_Proc/cocotb
@@ -40,9 +40,22 @@ codegen: optimize
 		$(OPT_IR_FILE) > fp16_multiplier_stage_$$STAGE.v; \
 	done
 
+# Add timescale directive (in-place update)
+add_timescale: codegen
+	cp $(OUTPUT_FILE) $(OUTPUT_FILE).bak
+	echo '`timescale 1ns / 1ps' | cat - $(OUTPUT_FILE).bak > $(OUTPUT_FILE)
+	rm -f $(OUTPUT_FILE).bak
+
 # Cocotb simulation
-simulate: 
-	iverilog -o sim.vvp -D COCOTB_SIM=1 -g2012 fp16_multiplier_stage_5.v
+simulate: add_timescale
+	iverilog -o sim.vvp -D COCOTB_SIM=1 -g2012 $(OUTPUT_FILE) 
 	MODULE=fp16_mul_test TOPLEVEL=fp16_multiplier TOPLEVEL_LANG=verilog \
+	SIM=$(SIM) vvp -M $(shell cocotb-config --lib-dir) \
+		-m libcocotbvpi_icarus sim.vvp
+
+# Cocotb simulation
+simulate_v: 
+	iverilog -o sim.vvp -D COCOTB_SIM=1 -g2012 fp16_mul.v
+	MODULE=fp16_mul_test_v TOPLEVEL=fp16_multiplier TOPLEVEL_LANG=verilog \
 	SIM=$(SIM) vvp -M $(shell cocotb-config --lib-dir) \
 		-m libcocotbvpi_icarus sim.vvp
